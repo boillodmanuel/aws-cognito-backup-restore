@@ -1,17 +1,17 @@
-import { Aws, CfnOutput, Duration, RemovalPolicy, Stack, StackProps, Tags } from "aws-cdk-lib";
-import { AccountRecovery, CfnUserPoolGroup, Mfa, UserPool } from "aws-cdk-lib/aws-cognito";
-import { Rule, Schedule } from "aws-cdk-lib/aws-events";
-import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
-import { Key } from "aws-cdk-lib/aws-kms";
-import { Architecture, Function, LambdaInsightsVersion, Runtime } from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { BlockPublicAccess, Bucket } from "aws-cdk-lib/aws-s3";
-import { Queue } from "aws-cdk-lib/aws-sqs";
-import { Construct } from 'constructs';
-import { join } from "path";
+import { Aws, CfnOutput, Duration, RemovalPolicy, Stack, StackProps, Tags } from 'aws-cdk-lib'
+import { AccountRecovery, CfnUserPoolGroup, Mfa, UserPool } from 'aws-cdk-lib/aws-cognito'
+import { Rule, Schedule } from 'aws-cdk-lib/aws-events'
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets'
+import { Key } from 'aws-cdk-lib/aws-kms'
+import { Architecture, Function, LambdaInsightsVersion, Runtime } from 'aws-cdk-lib/aws-lambda'
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3'
+import { Queue } from 'aws-cdk-lib/aws-sqs'
+import { Construct } from 'constructs'
+import { join } from 'path'
 
 interface CognitoBackupStackProps extends StackProps {
-  stackTags?: { [key: string]: string };
+  stackTags?: { [key: string]: string }
 }
 
 export class CognitoBackupStack extends Stack {
@@ -19,103 +19,102 @@ export class CognitoBackupStack extends Stack {
   readonly key: Key
   readonly userPool: UserPool
   readonly backupBucket: Bucket
+  // eslint-disable-next-line @typescript-eslint/ban-types
   readonly cognitoBackupFunction: Function
 
   constructor(scope: Construct, id: string, props?: CognitoBackupStackProps) {
-    super(scope, id, props);
+    super(scope, id, props)
 
     this.props = props || {}
 
-    this.key = this.createKmsKey();
+    this.key = this.createKmsKey()
 
-    this.userPool = this.createUserPoolAndGroups();
+    this.userPool = this.createUserPoolAndGroups()
 
-    this.backupBucket = this.createBackupBucket();
+    this.backupBucket = this.createBackupBucket()
 
-    this.createLifecycleRuleForCognitoBackupBucket();
+    this.createLifecycleRuleForCognitoBackupBucket()
 
-    this.cognitoBackupFunction = this.createCognitoBackupFunction();
+    this.cognitoBackupFunction = this.createCognitoBackupFunction()
 
-    this.createCognitoBackupDailySchedule();
+    this.createCognitoBackupDailySchedule()
 
-    new CfnOutput(this, "backup-bucket-name", {
+    new CfnOutput(this, 'backup-bucket-name', {
       value: this.backupBucket.bucketName,
-    });
+    })
 
-    new CfnOutput(this, "user-pool-id", {
+    new CfnOutput(this, 'user-pool-id', {
       value: this.userPool.userPoolId,
-    });
+    })
   }
 
   createKmsKey() {
-    const key = new Key(this, "key", {
+    const key = new Key(this, 'key', {
       enableKeyRotation: true,
       pendingWindow: Duration.days(7),
       removalPolicy: RemovalPolicy.RETAIN,
-    });
+    })
 
     return key
   }
 
   createUserPoolAndGroups() {
-    const userPool = new UserPool(this, "userpool", {
+    const userPool = new UserPool(this, 'userpool', {
       removalPolicy: RemovalPolicy.RETAIN,
       deletionProtection: true,
       accountRecovery: AccountRecovery.NONE,
       mfa: Mfa.OFF,
-    });
+    })
 
     // We must manually add tags on UserPool (see https://github.com/aws/aws-cdk/issues/14127)
-    Object.entries(this.props.stackTags || {}).forEach(([key, value]) =>
-      Tags.of(userPool).add(key, value)
-    );
+    Object.entries(this.props.stackTags || {}).forEach(([key, value]) => Tags.of(userPool).add(key, value))
 
-    new CfnUserPoolGroup(this, "userpool-users-group", {
+    new CfnUserPoolGroup(this, 'userpool-users-group', {
       userPoolId: userPool.userPoolId,
-      groupName: "users",
-    });
+      groupName: 'users',
+    })
 
-    new CfnUserPoolGroup(this, "userpool-admins-group", {
+    new CfnUserPoolGroup(this, 'userpool-admins-group', {
       userPoolId: userPool.userPoolId,
-      groupName: "admins",
-    });
+      groupName: 'admins',
+    })
 
-    return userPool;
+    return userPool
   }
 
   createBackupBucket() {
-    const backupBucket = new Bucket(this, "backup-bucket", {
+    const backupBucket = new Bucket(this, 'backup-bucket', {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       encryptionKey: this.key,
       bucketKeyEnabled: true,
       versioned: true,
       removalPolicy: RemovalPolicy.RETAIN,
       autoDeleteObjects: false,
-    });
+    })
 
-    return backupBucket;
+    return backupBucket
   }
 
   createLifecycleRuleForCognitoBackupBucket() {
     this.backupBucket.addLifecycleRule({
-      id: "clean-cognito-daily-backup-after-30-days-rule",
+      id: 'clean-cognito-daily-backup-after-30-days-rule',
       expiration: Duration.days(30),
       noncurrentVersionsToRetain: 0,
-      prefix: "Cognito/DailyBackup/",
-    });
+      prefix: 'Cognito/DailyBackup/',
+    })
 
     this.backupBucket.addLifecycleRule({
-      id: "clean-cognito-monthly-backup-after-1-year-rule",
+      id: 'clean-cognito-monthly-backup-after-1-year-rule',
       expiration: Duration.days(366),
       noncurrentVersionsToRetain: 0,
-      prefix: "Cognito/MonthlyBackup/",
-    });
+      prefix: 'Cognito/MonthlyBackup/',
+    })
   }
 
   createCognitoBackupFunction() {
-    const cognitoBackupFunction = new NodejsFunction(this, "cognito-backup-function", {
+    const cognitoBackupFunction = new NodejsFunction(this, 'cognito-backup-function', {
       runtime: Runtime.NODEJS_18_X,
-      entry: join(__dirname, "../assets/cognito-backup-function/index.ts"),
+      entry: join(__dirname, '../assets/cognito-backup-function/index.ts'),
       architecture: Architecture.ARM_64,
       bundling: {
         minify: false,
@@ -123,45 +122,44 @@ export class CognitoBackupStack extends Stack {
       },
       environmentEncryption: this.key,
       environment: {
-        NODE_OPTIONS: "--enable-source-maps",
+        NODE_OPTIONS: '--enable-source-maps',
         BACKUP_USER_POOL_ID: this.userPool.userPoolId,
         BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
         REGION: Aws.REGION,
       },
       insightsVersion: LambdaInsightsVersion.VERSION_1_0_135_0,
       timeout: Duration.seconds(30),
-    });
+    })
 
     if (!cognitoBackupFunction.role) {
-      throw new Error("Unexpected error: property lambda.role should exist");
+      throw new Error('Unexpected error: property lambda.role should exist')
     }
 
     this.userPool.grant(
       cognitoBackupFunction.role,
-      "cognito-idp:ListUsers",
-      "cognito-idp:ListGroups",
-      "cognito-idp:ListUsersInGroup"
-    );
+      'cognito-idp:ListUsers',
+      'cognito-idp:ListGroups',
+      'cognito-idp:ListUsersInGroup',
+    )
 
     // Give permission to write to S3 'Cognito/' prefix only
-    this.backupBucket.grantReadWrite(cognitoBackupFunction, "Cognito/*");
+    this.backupBucket.grantReadWrite(cognitoBackupFunction, 'Cognito/*')
 
-    return cognitoBackupFunction;
+    return cognitoBackupFunction
   }
 
   createCognitoBackupDailySchedule() {
-    const dlq = new Queue(this, "cognito-backup-dead-letter-queue");
+    const dlq = new Queue(this, 'cognito-backup-dead-letter-queue')
 
     // WARN: tags on Rule are not supported yet: https://github.com/aws/aws-cdk/issues/4907
-    const rule = new Rule(this, "cognito-backup-daily-schedule", {
+    const rule = new Rule(this, 'cognito-backup-daily-schedule', {
       schedule: Schedule.rate(Duration.days(1)),
-    });
+    })
 
     rule.addTarget(
       new LambdaFunction(this.cognitoBackupFunction, {
         deadLetterQueue: dlq,
-      })
-    );
+      }),
+    )
   }
-
 }

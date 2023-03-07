@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
+    "outDir": "dist",
     "lib": [
       "es2020"
     ],
@@ -25,6 +26,7 @@
   },
   "exclude": [
     "node_modules",
-    "cdk.out"
+    "cdk.out",
+    "assets/cognito-backup-function"
   ]
 }
