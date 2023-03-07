@@ -1,4 +1,3 @@
-# Welcome to your CDK TypeScript project
 # Cognito Backup
 
 ## Functional Overview
