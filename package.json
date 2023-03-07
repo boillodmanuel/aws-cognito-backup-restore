@@ -1,6 +1,6 @@
 {
   "name": "@boillodmanuel/aws-cognito-backup-restore",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "bin": {
     "cognito-backup": "bin/cognito-backup.js"
   },
